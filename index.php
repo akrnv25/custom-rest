@@ -74,7 +74,8 @@ function update_user(WP_REST_Request $request) {
 		update_user_meta($user_id, 'billing_email', $params['email']);
 	}
 	if (!is_null($params['password'])) {
-		wp_update_user(['ID' => $user_id, 'user_pass' => $params['password']]);
+		$userInstance = new WP_User(intval($user_id));
+    	reset_password($userInstance, $params['password']);
 	}
 	if (!is_null($params['avatar'])) {
 		update_user_meta($user_id, 'description', $params['avatar']);
@@ -89,15 +90,25 @@ function reset_password_send_email(WP_REST_Request $request) {
  	$email = $request -> get_param('email');
     $userdata = get_user_by('email', $email);
     if (empty($userdata)) {
-        $userdata = get_user_by('login', $email);
-    }
-    if (empty($userdata)) {
         return 'User not found.';
     }
-    $user = new WP_User(intval($userdata -> ID));
-    $reset_key = get_password_reset_key($user);
-    $wc_emails = WC() -> mailer() -> get_emails();
-    $wc_emails['WC_Email_Customer_Reset_Password'] -> trigger($user -> user_login, $reset_key);
+	$user = $userdata -> to_array();
+	$password = wp_generate_password(8, true, true);
+    $userInstance = new WP_User(intval($userdata -> ID));
+    reset_password($userInstance, $password);
+	$email_subject = '[Proleafy App] Password Changed';
+	$headers = "From: '" . 'Proleafy App' . "' <" . 'proleafyapp@gmail.com' . "> \r\n";
+	$headers .= "Reply-To: ". strip_tags($user['user_email']) . "\r\n";
+	$headers .= "Content-Type:text/html;charset=utf-8";
+	$email_message = '<html><body>';
+	$email_message .= "<table>";
+	$email_message .= "<tr><td>Username: </td><td>" . $user['user_login'] . "</td></tr>";
+	$email_message .= "<tr><td>Email: </td><td>" . $user['user_email'] . "</td></tr>";
+	$email_message .= "<tr><td>Password: </td><td>" . $password . "</td></tr>";
+	$email_message .= "</table>";
+	$email_message .= "</body></html>";
+	$email_message = nl2br($email_message);
+	wp_mail($user['user_email'], $email_subject, $email_message, $headers);
     return 'Password reset link has been sent to your registered email.';
 }
 
@@ -105,12 +116,13 @@ function create_new_user(WP_REST_Request $request) {
 	$params = $request -> get_params();
 	$user_id = wp_insert_user([
 		'user_login' => $params['login'],
-		'user_email' => $params['email'],
-		'user_pass' => $params['password'],
+		'user_email' => $params['email']
 	]);
 	if (is_wp_error($user_id)) {
 		return $user_id -> get_error_message();
 	}
+	$userInstance = new WP_User(intval($user_id));
+    reset_password($userInstance, $params['password']);
 	update_user_meta($user_id, 'description', $params['avatar']);
 	update_user_meta($user_id, 'billing_phone', $params['phone']);
 	update_user_meta($user_id, 'billing_email', $params['email']);
