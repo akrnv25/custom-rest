@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: Custom REST
-Plugin URI:
+Plugin URI: https://github.com/korenev6052/custom-rest.git
 Description: Custom routes for managing users
 Version: 1.0.0
 Author: Alex Korenev
-Author URI:
+Author URI: https://github.com/korenev6052
 */
 
 add_action('rest_api_init', function() {
